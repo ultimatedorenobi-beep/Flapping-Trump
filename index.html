@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Flapping Trump">
+<meta name="apple-mobile-web-app-title" content="Flappy Trump">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#87CEEB">
-<title>Flapping Trump</title>
+<title>Flappy Trump</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -484,6 +484,175 @@ function getShake(dt){
 const STARS=Array.from({length:70},()=>({x:Math.random()*VW,y:Math.random()*VH*.72,r:.4+Math.random()*1.6,a:.3+Math.random()*.7}));
 
 // ════════════════════════════════════════════
+//  WIND & LEAF SYSTEM
+// ════════════════════════════════════════════
+
+// Wind state — gusts are random intervals
+const wind={
+  strength:0,      // current wind push (px/s, positive = leftward = same dir as game scroll)
+  target:0,        // strength we're easing toward
+  timer:0,         // countdown to next gust decision
+  gusting:false,   // true during a gust
+  gustAlpha:0,     // visual opacity of wind lines (0-1)
+};
+
+// Leaf pool
+const LEAF_COLORS=['#4CAF50','#66BB6A','#388E3C','#81C784','#2E7D32','#A5D6A7','#558B2F','#DCEDC8'];
+let leaves=[];
+
+// Spawn one leaf at the right edge (it travels left with the wind + scroll)
+function spawnLeaf(speed){
+  const sz=5+Math.random()*9;           // size 5-14 px
+  leaves.push({
+    x: VW+sz+Math.random()*60,           // start just off right edge
+    y: Math.random()*(VH-GH-60)+30,      // random height above ground
+    vx:-(speed*0.85+Math.random()*60),   // leftward velocity
+    vy:(Math.random()-0.5)*55,           // slight vertical drift
+    rot:Math.random()*Math.PI*2,         // initial rotation
+    rotV:(Math.random()-0.5)*4,          // spin speed rad/s
+    sz,                                  // half-size for drawing
+    wobblePhase:Math.random()*Math.PI*2, // sine wobble offset
+    wobbleSpeed:2+Math.random()*3,       // wobble frequency
+    wobbleAmp:18+Math.random()*28,       // lateral wobble px/s
+    col:LEAF_COLORS[~~(Math.random()*LEAF_COLORS.length)],
+    alpha:0,                             // fade in
+    life:1.0,
+    decay:.0018+Math.random()*.003,      // very slow decay — leaves persist
+  });
+}
+
+// Wind lines pool (streaks that fly across the screen)
+let windLines=[];
+function spawnWindLine(){
+  windLines.push({
+    x:VW+10,
+    y:Math.random()*(VH-GH-20)+10,
+    len:40+Math.random()*90,
+    speed:380+Math.random()*200,
+    alpha:0.06+Math.random()*0.10,
+    life:1,
+  });
+}
+
+let leafSpawnTimer=0;
+let windLineTimer=0;
+
+function updateWind(dt,sp){
+  // Decide new gust every 3-8 seconds
+  wind.timer-=dt;
+  if(wind.timer<=0){
+    if(wind.gusting){
+      // Gust ends — ease back to calm
+      wind.gusting=false;
+      wind.target=0;
+      wind.timer=3+Math.random()*6;     // calm period
+    } else {
+      // Start a gust
+      wind.gusting=true;
+      wind.target=sp*(.35+Math.random()*.45); // gust = 35-80% of scroll speed
+      wind.timer=1.5+Math.random()*3.5; // gust duration
+    }
+  }
+
+  // Smooth transition to target
+  const ease=wind.gusting?2.5:1.2;
+  wind.strength+=(wind.target-wind.strength)*ease*dt;
+
+  // Visual alpha
+  const tAlpha=wind.gusting?Math.min(1,wind.strength/120):0;
+  wind.gustAlpha+=(tAlpha-wind.gustAlpha)*3*dt;
+
+  // Spawn leaves during gusts
+  if(wind.gusting&&wind.strength>40){
+    leafSpawnTimer-=dt;
+    if(leafSpawnTimer<=0){
+      const count=1+~~(wind.strength/120); // more leaves at stronger gusts
+      for(let i=0;i<count;i++) spawnLeaf(sp+wind.strength);
+      leafSpawnTimer=.18+Math.random()*.35;
+    }
+    // Wind streak lines
+    windLineTimer-=dt;
+    if(windLineTimer<=0){
+      spawnWindLine();
+      windLineTimer=.04+Math.random()*.08;
+    }
+  } else {
+    leafSpawnTimer=0;
+  }
+
+  // Update leaves
+  for(const l of leaves){
+    l.x+=l.vx*dt;
+    l.y+=l.vy*dt;
+    l.vy+=20*dt;                                        // gentle gravity
+    l.y+=Math.sin(l.wobblePhase)*l.wobbleAmp*dt;       // sine wobble
+    l.wobblePhase+=l.wobbleSpeed*dt;
+    l.vx-=(l.vx+sp*0.7)*0.4*dt;                        // drag toward scroll speed
+    l.rot+=l.rotV*dt;
+    // Fade in quickly, then very slowly fade out
+    if(l.alpha<1) l.alpha=Math.min(1,l.alpha+dt*3);
+    l.life-=l.decay;
+    // Also kill if off-screen
+    if(l.x<-30||l.y>VH-GH+10||l.y<-30) l.life=0;
+  }
+  leaves=leaves.filter(l=>l.life>0);
+
+  // Update wind lines
+  for(const wl of windLines){
+    wl.x-=wl.speed*dt;
+    wl.life-=(wl.speed/(VW+wl.len));  // dies when it crosses the screen
+    if(wl.x<-wl.len) wl.life=0;
+  }
+  windLines=windLines.filter(wl=>wl.life>0);
+}
+
+// Draw a single leaf as a small rounded teardrop shape
+function drawLeafShape(l){
+  ctx.save();
+  ctx.translate(l.x,l.y);
+  ctx.rotate(l.rot);
+  ctx.globalAlpha=l.alpha*l.life;
+  ctx.fillStyle=l.col;
+
+  // Leaf body: two bezier curves forming an oval leaf
+  const s=l.sz;
+  ctx.beginPath();
+  ctx.moveTo(0,-s);
+  ctx.bezierCurveTo(s*.7,-s*.5, s*.7,s*.5, 0,s);
+  ctx.bezierCurveTo(-s*.7,s*.5, -s*.7,-s*.5, 0,-s);
+  ctx.fill();
+
+  // Central vein
+  ctx.strokeStyle='rgba(0,0,0,0.18)';
+  ctx.lineWidth=.8;
+  ctx.beginPath();ctx.moveTo(0,-s*.85);ctx.lineTo(0,s*.85);ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawWindEffect(){
+  if(wind.gustAlpha<0.005) return;
+
+  // Wind streaks
+  ctx.save();
+  for(const wl of windLines){
+    ctx.beginPath();
+    ctx.moveTo(wl.x,wl.y);
+    ctx.lineTo(wl.x+wl.len,wl.y);
+    const g=ctx.createLinearGradient(wl.x,0,wl.x+wl.len,0);
+    g.addColorStop(0,'rgba(255,255,255,0)');
+    g.addColorStop(.4,`rgba(255,255,255,${wl.alpha*wind.gustAlpha})`);
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.strokeStyle=g;ctx.lineWidth=1+Math.random()*.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Leaves
+  for(const l of leaves) drawLeafShape(l);
+}
+
+// ════════════════════════════════════════════
 //  GAME STATE
 // ════════════════════════════════════════════
 function newGs(){
@@ -525,7 +694,7 @@ function doFlap(){
   playSound('flap_sound',.7);
 }
 function doStart(){touchA();gs.screen='playing';gs.playing=true;gs.startTs=performance.now()}
-function doRestart(){touchA();gs=newGs();pts=[]}
+function doRestart(){touchA();gs=newGs();pts=[];leaves=[];windLines=[];wind.strength=0;wind.target=0;wind.timer=2;wind.gusting=false;wind.gustAlpha=0;}
 
 function onDown(e){
   if(achOv.classList.contains('open'))return;
@@ -609,6 +778,9 @@ function update(dt){
 
   // Ground
   gs.groundX-=sp*dt;if(gs.groundX<=-VW)gs.groundX=0;
+
+  // Wind & leaves
+  updateWind(dt,sp);
 
   // Clouds
   for(const c of gs.clouds){
@@ -767,7 +939,7 @@ function drawBtn(lbl,rect,t,b){
 //  SCREENS
 // ════════════════════════════════════════════
 function drawTitle(lv,ts){
-  drawSky(lv,ts);drawClouds(lv);drawGround();
+  drawSky(lv,ts);drawClouds(lv);drawGround();drawWindEffect();
   const hy=VH*.4+Math.sin(ts/600)*9,im=IC['donald_bird_character'];
   if(im)ctx.drawImage(im,CX-CW/2,hy-CH/2,CW,CH);
   ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,VW,VH*.6);
@@ -791,7 +963,7 @@ function drawTitle(lv,ts){
 }
 
 function drawPlaying(lv,ts){
-  drawSky(lv,ts);drawClouds(lv);drawPipes(lv);drawGround();drwPts();drawBird(ts);drawHUD(lv);drawLvUp();
+  drawSky(lv,ts);drawClouds(lv);drawPipes(lv);drawGround();drawWindEffect();drwPts();drawBird(ts);drawHUD(lv);drawLvUp();
   if(!gs.playing){
     const b={x:VW/2-148,y:VH-138,w:296,h:60};const a=.78+Math.sin(ts/400)*.18;
     ctx.save();ctx.globalAlpha=a;rr(b.x,b.y,b.w,b.h,10);
@@ -803,7 +975,7 @@ function drawPlaying(lv,ts){
 }
 
 function drawGameOver(lv,ts){
-  drawSky(lv,ts);drawClouds(lv);drawPipes(lv);drawGround();drwPts();drawBird(ts);
+  drawSky(lv,ts);drawClouds(lv);drawPipes(lv);drawGround();drawWindEffect();drwPts();drawBird(ts);
   ctx.fillStyle='rgba(0,0,0,.83)';ctx.fillRect(0,0,VW,VH);
 
   ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
@@ -857,6 +1029,8 @@ let lastTs=0;
 function loop(ts){
   const dt=Math.min((ts-lastTs)/1000,MAXDT);lastTs=ts;
   update(dt);
+  // Keep wind alive on title screen (uses a gentle ambient speed)
+  if(gs.screen==='title') updateWind(dt, 180);
   const lv=getLv(gs.score);
   const{sx,sy}=getShake(dt);
   ctx.save();ctx.translate(sx,sy);
