@@ -1,0 +1,68 @@
+// Asset Map (Read-Only)
+// Edit assets in the Media tab.
+// Use these IDs alongside lib to reference assets in your code:
+//
+// Example: lib.getAsset["player_sprite"]
+
+const assets = {
+  "donald_bird_character": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/images/donald_bird_character_e76521b9-19ca-4a15-8379-bad321e3b551.webp",
+    "type": "image",
+    "aspect_ratio": [
+      781,
+      855
+    ]
+  },
+  "pipe_green": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/images/pipe_green_e6f4f827-816d-4ba6-9999-7ac37e27a665.webp",
+    "type": "image",
+    "aspect_ratio": [
+      645,
+      1185
+    ]
+  },
+  "pipe_cap": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/images/pipe_cap_92502bf0-8bf3-4146-99d6-a6ae4591fabd.webp",
+    "type": "image",
+    "aspect_ratio": [
+      957,
+      755
+    ]
+  },
+  "ground_texture": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/images/ground_texture_052e4147-97c6-49a5-a8ef-ee0d7de561a2.webp",
+    "type": "image",
+    "aspect_ratio": [
+      1536,
+      1024
+    ]
+  },
+  "cloud_1": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/images/cloud_1_89dd837d-52f1-4b7f-95b4-5a526de80fbc.webp",
+    "type": "image",
+    "aspect_ratio": [
+      1276,
+      686
+    ]
+  },
+  "cloud_2": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/images/cloud_2_c437b668-35dc-4020-8084-7ff944b2865a.webp",
+    "type": "image",
+    "aspect_ratio": [
+      1430,
+      717
+    ]
+  },
+  "flap_sound": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/sounds/effect/flap_sound_dbcd10e8-b28d-4ee5-802f-26cb05626583.mp3",
+    "type": "audio"
+  },
+  "score_sound": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/sounds/effect/score_sound_e4628dd6-d20a-427c-bd98-773bcdefbea1.mp3",
+    "type": "audio"
+  },
+  "hit_sound": {
+    "url": "https://d2oir5eh8rty2e.cloudfront.net/assets/sounds/effect/hit_sound_500dfe59-4203-4a87-819c-e7c66708d270.mp3",
+    "type": "audio"
+  }
+};
