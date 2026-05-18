@@ -11,6 +11,7 @@
 <title>Flapping Trump - Free Online Browser Game</title>
 <meta name="description" content="Play Flapping Trump, a fun free browser game with achievements, difficult levels and arcade gameplay.">
 <meta name="keywords" content="flappy game, browser game, indie game, online game, pixel game">
+<meta name="google-site-verification" content="aIKvI7-0nnn3V8Aukbn6mcSNOmZkl5pzJ0x-25d77y0" />
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -282,7 +283,7 @@ const ACH=[
   {id:'secnight',tier:'plat',   emoji:'🌙', name:'Night Owl',       desc:'Survive all 10 level transitions', secret:true,
    check:s=>s.maxLvIdx>=9,    progress:s=>({cur:Math.min(s.maxLvIdx,9),max:9})},
   {id:'sec0die', tier:'legend', emoji:'🏆', name:'Flawless',        desc:'Reach score 50 without dying (single run)', secret:true,
-   check:s=>s.deaths===0&&s.score>=50, progress:s=>({cur:s.deaths===0?Math.min(s.score,50):0,max:50})},
+   check:s=>s.runDeaths===0&&s.score>=50, progress:s=>({cur:s.runDeaths===0?Math.min(s.score,50):0,max:50})},
 ];
 
 const TIER_COLORS={
@@ -342,6 +343,7 @@ function snap(gs){
     maxCombo:Math.max(P.maxCombo,gs.combo||0),
     sessionBest:gs.sessionBest||0, quickStart:gs.quickStart||false,
     lastScore:gs.score, maxLvIdx:P.maxLvIdx,
+    runDeaths:gs.runDeaths||0,
   };
 }
 function checkAch(gs){
@@ -414,7 +416,7 @@ function ensureAudio(){
   if(aC.state==='suspended')aC.resume();
 }
 async function loadAudio(){
-  if(aRdy||!aC)return;aRdy=true;
+  if(aRdy)return;if(!aC)return;aRdy=true;
   for(const[id,inf]of Object.entries(ASSETS)){
     if(inf.type!=='audio')continue;
     try{const ab=await(await fetch(inf.url)).arrayBuffer();aBufs[id]=await aC.decodeAudioData(ab)}catch(e){}
@@ -666,7 +668,7 @@ function newGs(){
     clouds:[{x:60,y:80,spd:.30,img:'cloud_1'},{x:260,y:170,spd:.25,img:'cloud_2'},{x:410,y:55,spd:.35,img:'cloud_1'}],
     lvUpTimer:0,lvUpText:'',invincible:0,
     sessionBest:0,quickStart:false,startTs:0,
-    combo:0,maxCombo:0,lastFlapVy:0,
+    combo:0,maxCombo:0,lastFlapVy:0,runDeaths:0,
   };
 }
 let gs=newGs();
@@ -683,7 +685,7 @@ function inR(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h}
 //  INPUT
 // ════════════════════════════════════════════
 let aInit=false;
-function touchA(){ensureAudio();if(!aInit){aInit=true;loadAudio()}}
+function touchA(){ensureAudio();if(!aInit&&aC){aInit=true;loadAudio()}}
 function toV(cx,cy){const r=cv.getBoundingClientRect();return{x:(cx-r.left)*VW/r.width,y:(cy-r.top)*VH/r.height}}
 
 function doFlap(){
@@ -703,7 +705,7 @@ function onDown(e){
   e.preventDefault();
   const src=e.touches?e.touches[0]:e;
   const{x,y}=toV(src.clientX,src.clientY);
-  if(gs.screen==='title'){doStart();return}
+  if(gs.screen==='title'){if(inR(x,y,rPlay()))doStart();return}
   if(gs.dead){
     if(inR(x,y,rRestart())){doRestart();return}
     if(inR(x,y,rAch())){openAch();return}
@@ -807,7 +809,7 @@ function update(dt){
 
 async function die(){
   gs.dead=true;gs.screen='gameOver';
-  P.deaths++;save(P);
+  P.deaths++;gs.runDeaths++;save(P);
   playSound('hit_sound',.9);shake(8,.35);
   spawnPts(gs.bird.x,gs.bird.y,20,['#FF4444','#FF8800','#FFD700']);
   checkAch(gs);
@@ -1052,6 +1054,8 @@ function loop(ts){
   ctx.font='13px "Press Start 2P",monospace';ctx.fillStyle='#FFD700';
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('LOADING...',VW/2,VH/2-22);
   ctx.fillStyle='rgba(255,255,255,.08)';rr(VW/2-100,VH/2+6,200,14,7);ctx.fill();
+  ctx.font='7px "Press Start 2P",monospace';ctx.fillStyle='rgba(255,255,255,.3)';
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('powered by SK',VW/2,VH/2+36);
   await loadImages();
   ctx.fillStyle='#FFD700';rr(VW/2-100,VH/2+6,200,14,7);ctx.fill();
   await new Promise(r=>setTimeout(r,200));
