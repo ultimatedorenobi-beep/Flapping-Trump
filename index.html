@@ -20,6 +20,8 @@
 <meta name="description" content="Play Flapping Trump, a fun free browser game with achievements, difficult levels and arcade gameplay.">
 <meta name="keywords" content="flappy game, browser game, indie game, online game, pixel game">
 <meta name="google-site-verification" content="aIKvI7-0nnn3V8Aukbn6mcSNOmZkl5pzJ0x-25d77y0" />
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7215311714047704" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -30,6 +32,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:no
 #wrap{position:relative;width:100%;height:100%;max-width:calc(100vh*.6)}
 @media(orientation:portrait){#wrap{max-width:100%}}
 canvas{display:block;width:100%;height:100%}
+
+/* ─── AD OVERLAY ─── */
+#adOverlay{
+  display:none;position:absolute;left:50%;transform:translateX(-50%);
+  bottom:160px;z-index:20;
+  background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.15);
+  border-radius:12px;padding:10px;text-align:center;
+  width:min(340px,90%);
+}
+#adOverlay .ad-label{font-family:'VT323',monospace;font-size:13px;color:rgba(255,255,255,.35);margin-bottom:6px;}
+#adOverlay.visible{display:block;}
 
 /* ─── TOAST ─── */
 #toast{
@@ -118,6 +131,17 @@ canvas{display:block;width:100%;height:100%}
 <body>
 <div id="app"><div id="wrap">
   <canvas id="gc"></canvas>
+
+  <!-- Game-Over Ad Unit -->
+  <div id="adOverlay">
+    <div class="ad-label">Advertisement</div>
+    <ins class="adsbygoogle"
+         style="display:block;width:300px;height:100px"
+         data-ad-client="ca-pub-7215311714047704"
+         data-ad-slot="123456789"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+  </div>
 
   <div id="toast">
     <div id="t-icon">🏆</div>
@@ -687,6 +711,7 @@ let gs=newGs();
 function rPlay()   {return{x:VW/2-175,y:VH-145,w:350,h:72}}
 function rRestart(){return{x:VW/2-175,y:VH-228,w:350,h:68}}
 function rAch()    {return{x:VW/2-175,y:VH-148,w:350,h:60}}
+function rRevive() {return{x:VW/2-175,y:VH-302,w:350,h:62}}
 function inR(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h}
 
 // ════════════════════════════════════════════
@@ -706,7 +731,43 @@ function doFlap(){
   playSound('flap_sound',.7);
 }
 function doStart(){touchA();gs.screen='playing';gs.playing=true;gs.startTs=performance.now()}
-function doRestart(){touchA();gs=newGs();pts=[];leaves=[];windLines=[];wind.strength=0;wind.target=0;wind.timer=2;wind.gusting=false;wind.gustAlpha=0;}
+function doRestart(){touchA();gs=newGs();pts=[];leaves=[];windLines=[];wind.strength=0;wind.target=0;wind.timer=2;wind.gusting=false;wind.gustAlpha=0;reviveUsedThisRun=false;hideAd();}
+
+// ════════════════════════════════════════════
+//  AD SYSTEM
+// ════════════════════════════════════════════
+let lastAdTime=0;
+let reviveUsedThisRun=false;
+
+function canShowAd(){
+  // 6.6 minutes = 396000 ms between ads
+  return Date.now()-lastAdTime>396000;
+}
+
+function showAd(){
+  const overlay=document.getElementById('adOverlay');
+  overlay.classList.add('visible');
+  try{(adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
+  lastAdTime=Date.now();
+}
+
+function hideAd(){
+  document.getElementById('adOverlay').classList.remove('visible');
+}
+
+function revivePlayer(){
+  hideAd();
+  gs.dead=false;gs.screen='playing';gs.playing=true;
+  gs.bird.vy=-300;gs.bird.y=Math.min(gs.bird.y,VH*0.45);
+  reviveUsedThisRun=true;
+  playSound('flap_sound',.7);
+}
+
+function watchAdToRevive(){
+  showAd();
+  gs.screen='reviving'; // freeze input during ad
+  setTimeout(()=>{ revivePlayer(); },15000);
+}
 
 function onDown(e){
   if(achOv.classList.contains('open'))return;
@@ -717,6 +778,7 @@ function onDown(e){
   if(gs.dead){
     if(inR(x,y,rRestart())){doRestart();return}
     if(inR(x,y,rAch())){openAch();return}
+    if(!reviveUsedThisRun&&gs.score>0&&inR(x,y,rRevive())){watchAdToRevive();return}
     return;
   }
   doFlap();
@@ -821,6 +883,7 @@ async function die(){
   playSound('hit_sound',.9);shake(8,.35);
   spawnPts(gs.bird.x,gs.bird.y,20,['#FF4444','#FF8800','#FFD700']);
   checkAch(gs);
+  if(canShowAd())showAd();
 }
 
 // ════════════════════════════════════════════
@@ -1032,6 +1095,10 @@ function drawGameOver(lv,ts){
   ctx.restore();
   drawBtn('↺  PLAY AGAIN',rRestart(),'#1565C0','#0D47A1');
   drawBtn('🏆  ACHIEVEMENTS',rAch(),'#6A1B9A','#4A148C');
+  // Revive button — only once per run, only if score > 0
+  if(!reviveUsedThisRun&&gs.score>0){
+    drawBtn('📺  WATCH AD TO REVIVE',rRevive(),'#E65100','#BF360C');
+  }
 }
 
 // ════════════════════════════════════════════
@@ -1048,7 +1115,7 @@ function loop(ts){
   ctx.save();ctx.translate(sx,sy);
   if(gs.screen==='title')       drawTitle(lv,ts);
   else if(gs.screen==='playing')drawPlaying(lv,ts);
-  else if(gs.screen==='gameOver')drawGameOver(lv,ts);
+  else if(gs.screen==='gameOver'||gs.screen==='reviving')drawGameOver(lv,ts);
   ctx.restore();
   requestAnimationFrame(loop);
 }
